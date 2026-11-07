@@ -1,0 +1,103 @@
+# 本番専用の nginx 設定（CloudFront → EC2 の構成）。開発用・E2E 用は default.conf を使う
+#
+#   ブラウザ --HTTPS--> CloudFront --HTTP + X-Origin-Verify--> EC2（この nginx）--> Laravel
+#
+# nginx 公式イメージのテンプレート機構で読み込む
+#   置き場所：/etc/nginx/templates/default.conf.template → 起動時に /etc/nginx/conf.d/default.conf になる
+#   置き換える環境変数は2つだけ：NGINX_ENVSUBST_FILTER='^(APP_DOMAIN|ORIGIN_VERIFY_SECRET)$'
+#     APP_DOMAIN            … 本番のドメイン名（https:// は付けない）
+#     ORIGIN_VERIFY_SECRET  … CloudFront が付ける X-Origin-Verify の値（英数字だけ。例：openssl rand -hex 32）
+#   ※ 秘密の値はこのファイルに書かない。Git に入れない別のファイルから環境変数で渡す
+#   ※ $uri などの nginx の変数は、上の2つ以外なので置き換わらない
+#   ※ ORIGIN_VERIFY_SECRET が未設定だと置き換わらずに残り、nginx が起動エラーになる（通してしまうことはない）
+#
+# アクセスログ：イメージ標準の形式（main）を使う。X-Origin-Verify は記録されない
+#   形式を変えるときも $http_x_origin_verify は入れないこと
+#
+# CloudFront の Origin Request Policy は AllViewer（閲覧者の Host をそのまま転送する）が前提。
+#   Host を転送しない設定にすると、EC2 には別の Host が届き、すべて 444 で切断される
+
+# 利用者の IP：CloudFront は X-Forwarded-For のいちばん右に、閲覧者の IP を書き足す
+#   左側は利用者が自由に書けるので使わない。いちばん右が IP の形でなければ、接続元（$remote_addr）を使う
+#   秘密ヘッダーを確かめた通信（＝CloudFront を通った通信）にだけ使う（下の server で REMOTE_ADDR に入れる）
+#   → Laravel のログイン回数の制限（メールアドレス＋IP）が、利用者ごとに数えられる
+map $http_x_forwarded_for $viewer_ip {
+    default                                         $remote_addr;
+    "~(?:^|,)\s*(?<viewer>[0-9A-Fa-f.:]{2,45})\s*$"  $viewer;
+}
+
+# 本番のドメイン以外（IP アドレスの直打ち・*.cloudfront.net・想定外の Host・Host なし）は、応答せずに切断する
+server {
+    listen 80 default_server;
+    server_name _;
+    return 444;
+}
+
+server {
+    listen 80;
+    server_name ${APP_DOMAIN};
+    root /var/www/html/public;
+    index index.php;
+    charset utf-8;
+    client_max_body_size 20M;
+
+    # CloudFront から来たことの確認。ヘッダーがない・値が違うときは 403（/up や画像・CSS も含めてすべて）
+    # 1つ目は、ORIGIN_VERIFY_SECRET が空のまま起動したときに、ヘッダーなしで通ってしまうのを防ぐ
+    if ($http_x_origin_verify = "") {
+        return 403;
+    }
+    if ($http_x_origin_verify != "${ORIGIN_VERIFY_SECRET}") {
+        return 403;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass app:9000;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+
+        # 標準の fastcgi_params と同じ内容。ただし HTTPS・REQUEST_SCHEME・SERVER_PORT を二重に定義しないよう、
+        # include は使わずに1行ずつ書き、この3つだけ HTTPS の値にしている
+        fastcgi_param QUERY_STRING       $query_string;
+        fastcgi_param REQUEST_METHOD     $request_method;
+        fastcgi_param CONTENT_TYPE       $content_type;
+        fastcgi_param CONTENT_LENGTH     $content_length;
+        fastcgi_param SCRIPT_NAME        $fastcgi_script_name;
+        fastcgi_param REQUEST_URI        $request_uri;
+        fastcgi_param DOCUMENT_URI       $document_uri;
+        fastcgi_param DOCUMENT_ROOT      $document_root;
+        fastcgi_param SERVER_PROTOCOL    $server_protocol;
+        fastcgi_param GATEWAY_INTERFACE  CGI/1.1;
+        fastcgi_param SERVER_SOFTWARE    nginx/$nginx_version;
+        fastcgi_param REMOTE_ADDR        $viewer_ip;      # 上の map：CloudFront が書き足した閲覧者の IP
+        fastcgi_param REMOTE_PORT        $remote_port;
+        fastcgi_param SERVER_ADDR        $server_addr;
+        fastcgi_param SERVER_NAME        $server_name;
+        fastcgi_param REDIRECT_STATUS    200;
+
+        # 利用者 → CloudFront は HTTPS なので、Laravel に HTTPS として伝える（秘密ヘッダーを確認したあとだけ、ここに来る）
+        fastcgi_param HTTPS              on;
+        fastcgi_param REQUEST_SCHEME     https;
+        fastcgi_param SERVER_PORT        443;
+
+        # Host は本番のドメインに固定する（リクエスト行と Host ヘッダーが食い違う通信でも、URL のホストがぶれない）
+        fastcgi_param HTTP_HOST          ${APP_DOMAIN};
+
+        # 利用者が書けるヘッダーを PHP に渡さない
+        # nginx は、ここで名前を書いた HTTP_* のヘッダーを転送しない。値が空＋if_not_empty なので、パラメーター自体も送らない
+        fastcgi_param HTTP_X_ORIGIN_VERIFY     "" if_not_empty;   # 秘密の値
+        fastcgi_param HTTP_X_FORWARDED_FOR     "" if_not_empty;
+        fastcgi_param HTTP_X_FORWARDED_HOST    "" if_not_empty;
+        fastcgi_param HTTP_X_FORWARDED_PROTO   "" if_not_empty;
+        fastcgi_param HTTP_X_FORWARDED_PORT    "" if_not_empty;
+        fastcgi_param HTTP_X_FORWARDED_PREFIX  "" if_not_empty;
+        fastcgi_param HTTP_FORWARDED           "" if_not_empty;   # X-Forwarded-* の標準規格版
+        fastcgi_param HTTP_PROXY               "" if_not_empty;   # httpoxy 対策（Proxy ヘッダー）
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}

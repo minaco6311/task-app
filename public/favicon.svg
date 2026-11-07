@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- いろどり手帳のタブのアイコン：くすんだ淡い緑の葉っぱ（ダークモードのタブでは輪郭を明るく） -->
+  <style>
+    .leaf { fill: #9cc2a6; stroke: #4f7a60; }
+    .vein, .stem { stroke: #4f7a60; }
+    @media (prefers-color-scheme: dark) {
+      .leaf { fill: #a9cdb2; stroke: #d6e8da; }
+      .vein { stroke: #3f6650; }
+      .stem { stroke: #d6e8da; }
+    }
+  </style>
+  <path class="stem" d="M14 50 L6 58" fill="none" stroke-width="4" stroke-linecap="round"/>
+  <path class="leaf" d="M13 51 C11 27 27 9 56 8 C55 37 37 53 13 51 Z" stroke-width="3.5" stroke-linejoin="round"/>
+  <path class="vein" d="M15 49 C26 38 37 26 50 14" fill="none" stroke-width="3" stroke-linecap="round"/>
+  <path class="vein" d="M27 37 L26 27 M35 29 L35 20 M27 37 L37 38 M35 29 L45 30" fill="none" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

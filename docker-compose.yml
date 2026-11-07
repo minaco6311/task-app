@@ -1,0 +1,66 @@
+# 開発用の環境（自分のPCで動かす用）
+#   http://localhost:8080  … アプリ
+#   localhost:3306         … MySQL（Sequel Ace から接続）
+#   localhost:5173         … Vite（画面の CSS/JS を変更するとすぐ反映）
+# DB の名前・ユーザー・パスワードは Laravel の .env（DB_DATABASE など）から読む
+services:
+  app:
+    build: ./docker/php
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 定期実行（Laravel Scheduler）：毎分 LINE通知を確認する
+  # 開発中は .env の LINE_DRIVER=log なので、LINEには送らず通知履歴とログに記録するだけ
+  scheduler:
+    build: ./docker/php
+    volumes:
+      - ./:/var/www/html
+    command: php artisan schedule:work
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.4
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-irodori}
+      MYSQL_USER: ${DB_USERNAME:-irodori}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-irodori_local}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_local}
+      TZ: Asia/Tokyo
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-root_local}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  node:
+    image: node:22-alpine
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    ports:
+      - "5173:5173"
+    command: sh -c "npm run dev -- --host 0.0.0.0"
+    profiles: ["dev"]
+
+volumes:
+  db-data:

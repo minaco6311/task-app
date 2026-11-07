@@ -1,0 +1,109 @@
+# 本番用（常時動いているサーバー：AWS EC2 ＋ CloudFront）
+#   起動：docker compose -p irodori-prod -f docker-compose.prod.yml up -d --build
+#   手順は docs/aws-deploy.md（初めて置くときの設定・バックアップ・更新）
+#
+# 開発用との違い
+#   ・MySQL をサーバーの外に公開しない（ports なし）
+#   ・Vite（node）は常駐させない（画面の CSS/JS は build プロフィールで一度だけビルド）
+#   ・サーバーを再起動しても自動で立ち上がる（restart: unless-stopped）
+#   ・scheduler が毎分 LINE通知を送る → PC を閉じていても通知が届く
+#   ・HTTPS は CloudFront で受け、このファイルは 80番ポート（HTTP）で受ける
+#     nginx は本番専用の docker/nginx/prod.conf.template を使う（開発用の default.conf は使わない）
+#   ・LINE は line（LINE連携を登録した人に実際に送る。2026-11-06 に log から切り替え）。Laravel の .env に別の値があっても、下の environment が優先される
+#     送らない設定に戻すときは、下の2か所を LINE_DRIVER: log にして up -d → config:cache
+#   ・PHP（app・scheduler・artisan）と node は、リポジトリを git clone したユーザー（ec2-user = uid 1000）で動く
+#     → storage/ や bootstrap/cache/ に root 所有のファイルができない。uid が違うときは .env に APP_UID / APP_GID を書く
+#
+# 起動するときは、いつもプロジェクト名を書く（開発用の task_app と取り違えないため）
+#   docker compose -p irodori-prod -f docker-compose.prod.yml up -d --build
+#   docker compose -p irodori-prod -f docker-compose.prod.yml config | grep '^name:'   # → name: irodori-prod
+name: irodori-prod
+
+x-php-build: &php-build
+  context: ./docker/php
+  target: prod
+  args:
+    APP_UID: ${APP_UID:-1000}
+    APP_GID: ${APP_GID:-1000}
+
+services:
+  app:
+    build: *php-build
+    volumes:
+      - ./:/var/www/html
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      SESSION_SECURE_COOKIE: "true"
+      LINE_DRIVER: line
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  scheduler:
+    build: *php-build
+    volumes:
+      - ./:/var/www/html
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      SESSION_SECURE_COOKIE: "true"
+      LINE_DRIVER: line
+    command: php artisan schedule:work
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./:/var/www/html
+      # 起動時に ${APP_DOMAIN}・${ORIGIN_VERIFY_SECRET} を置き換えて /etc/nginx/conf.d/default.conf を作る
+      # （イメージ標準の default.conf を同じ名前で上書きするので、設定が二重にならない）
+      - ./docker/nginx/prod.conf.template:/etc/nginx/templates/default.conf.template:ro
+    # APP_DOMAIN と ORIGIN_VERIFY_SECRET はここから読む（Git に入れないファイル。ないと起動しない）
+    env_file:
+      - ./.env.nginx
+    environment:
+      # 置き換えるのはこの2つだけ（$uri などの nginx の変数は置き換えない）。$$ は Compose で $ の意味
+      NGINX_ENVSUBST_FILTER: "^(APP_DOMAIN|ORIGIN_VERIFY_SECRET)$$"
+    restart: unless-stopped
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:?DB_DATABASE を .env に設定してください}
+      MYSQL_USER: ${DB_USERNAME:?DB_USERNAME を .env に設定してください}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD を .env に設定してください}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD を .env に設定してください}
+      TZ: Asia/Tokyo
+    volumes:
+      - db-data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$$MYSQL_ROOT_PASSWORD\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # 画面の CSS/JS をビルドするときだけ使う：docker compose -p irodori-prod -f docker-compose.prod.yml run --rm node
+  node:
+    image: node:22-alpine
+    # root で動かすと node_modules/ と public/build/ が root 所有になるため、clone したユーザーで動かす
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    working_dir: /var/www/html
+    environment:
+      npm_config_cache: /tmp/.npm
+    volumes:
+      - ./:/var/www/html
+    command: sh -c "npm ci && npm run build"
+    profiles: ["build"]
+
+volumes:
+  db-data:

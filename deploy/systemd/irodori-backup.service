@@ -1,0 +1,15 @@
+# いろどり手帳：本番 MySQL のバックアップ（irodori-backup.timer から毎日動く）
+# 置き場所：/etc/systemd/system/irodori-backup.service（手順は docs/aws-deploy.md）
+# リポジトリを /home/ec2-user/task_app 以外に置いたときは、下の 2 か所のパスを直す
+[Unit]
+Description=irodori-techo MySQL backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=ec2-user
+Environment=BACKUP_DIR=/home/ec2-user/irodori-backups
+Environment=KEEP_DAYS=14
+WorkingDirectory=/home/ec2-user/task_app
+ExecStart=/home/ec2-user/task_app/deploy/backup-db.sh

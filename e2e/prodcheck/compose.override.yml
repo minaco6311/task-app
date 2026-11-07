@@ -1,0 +1,30 @@
+# 本番用 Compose（docker-compose.prod.yml）を Mac で確かめるための上書き。e2e/prodcheck/run.sh から使う（直接使わない）
+#   docker compose -p irodori-prodcheck --env-file e2e/.runtime/prodcheck/compose.env \
+#     -f docker-compose.prod.yml -f e2e/prodcheck/compose.override.yml ...
+#
+# ・プロジェクト名は irodori-prodcheck（コマンドの -p で指定）→ ボリュームは irodori-prodcheck_*。開発用の task_app とは別物
+# ・ポートは外に出さない。ネットワークは internal（外につながらない → LINE には絶対に届かない）
+# ・ソースは使い捨てのボリューム（src）へのコピー。持ち主は uid 1000（EC2 で ec2-user が git clone した状態と同じ）
+#   → 開発用のフォルダ（storage/・bootstrap/cache/・.env）には書き込まない
+# ・秘密ヘッダーとドメインは、テスト用のダミー（run.sh が e2e/.runtime/prodcheck/ に作り、終わったら消す）
+services:
+  app:
+    volumes: !override
+      - src:/var/www/html
+  scheduler:
+    volumes: !override
+      - src:/var/www/html
+  web:
+    ports: !reset []
+    volumes: !override
+      - src:/var/www/html
+      - ./docker/nginx/prod.conf.template:/etc/nginx/templates/default.conf.template:ro
+    env_file: !override
+      - ./e2e/.runtime/prodcheck/env.nginx
+
+networks:
+  default:
+    internal: true
+
+volumes:
+  src:

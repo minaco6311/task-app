@@ -1,0 +1,102 @@
+# ブラウザテスト（Playwright）専用の環境。開発用の MySQL・LINE・Google には一切つながない
+#   実行：sh e2e/run.sh（テスト用 .env の作成 → 安全確認 → テスト → 片付け までまとめて行う）
+#   ※ このファイルを直接 up しないこと（テスト用 .env が無いと、安全確認で止まる）
+#
+# ・プロジェクト名を分けている（irodori-e2e）ので、開発用のコンテナとは別物
+# ・DB はテストごとの使い捨て SQLite（e2e/.runtime/、Git 対象外）。MySQL の接続先はわざと存在しない名前にしている
+# ・ネットワークは internal（外につながらない）→ LINE・Googleカレンダーへの通信はできない
+# ・LINE_DRIVER=log（limit だけは上限の画面を見るために line。ただしテスト用 DB に LINE のトークンはなく、外にもつながらない）
+# ・時刻は E2E_NOW で固定（APP_ENV=e2e のときだけ効く）
+name: irodori-e2e
+
+x-app: &app
+  build: ./docker/php
+  volumes:
+    - ./:/var/www/html
+    # 開発用の .env の上に、テスト専用の .env（e2e/run.sh が e2e/env.e2e から作る）を重ねる
+    # → テスト用コンテナからは開発用の .env（MySQL の接続先など）が見えない。読み取り専用
+    - ./e2e/.runtime/.env:/var/www/html/.env:ro
+  networks: [e2e]
+  healthcheck:
+    test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8000/up') === false ? 1 : 0);"]
+    interval: 2s
+    timeout: 5s
+    retries: 60
+
+# 起動：テスト用 DB を作ってから、PHP の組み込みサーバーで動かす
+# （php artisan serve は内部で別のプロセスを起動し、ここで指定した環境変数が渡らないため使わない）
+x-serve: &serve sh -c "php e2e/setup.php && cd public && exec php -S 0.0.0.0:8000 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php"
+
+x-env: &env
+  APP_ENV: e2e
+  PHP_CLI_SERVER_WORKERS: "4"
+  APP_DEBUG: "false"
+  DB_CONNECTION: sqlite
+  DB_BUSY_TIMEOUT: "5000"        # 同時登録のテストで、SQLite の書き込みを順番に待つ
+  DB_TRANSACTION_MODE: IMMEDIATE # 書き込みのトランザクションを最初から確保する（SQLite の「読んでから書く」で行き詰まらないように）
+  INVITE_PER_MINUTE: "100"       # 招待の確認・登録の回数制限（本番は1分に10回）。テストは同じIPから続けて試すため
+  DB_HOST: e2e-no-mysql
+  DB_USERNAME: e2e
+  DB_PASSWORD: e2e
+  SESSION_DRIVER: database
+  # テストは時刻を E2E_NOW で固定するので、ログインのクッキーの期限も「固定した時刻＋有効時間」になる
+  # 標準の 120 分だと、実際の日付が固定した日を過ぎるとブラウザがクッキーを捨てて 419 になる → テストだけ10年にする
+  # （テスト用のコンテナだけの設定。本番・開発用のセッションの設定には影響しない）
+  SESSION_LIFETIME: "5256000"
+  CACHE_STORE: database
+  QUEUE_CONNECTION: sync
+  MAIL_MAILER: array
+  LOG_CHANNEL: stderr
+
+services:
+  # 日中（11/5 10:00）・シミュレーション
+  app-day:
+    <<: *app
+    environment:
+      <<: *env
+      DB_DATABASE: /var/www/html/e2e/.runtime/day.sqlite
+      LINE_DRIVER: log
+      E2E_NOW: "2026-11-05 10:00:00"
+      E2E_SCENARIO: day
+    command: *serve
+
+  # 夜（11/5 21:55）・シミュレーション → 夜間スヌーズの確認
+  app-night:
+    <<: *app
+    environment:
+      <<: *env
+      DB_DATABASE: /var/www/html/e2e/.runtime/night.sqlite
+      LINE_DRIVER: log
+      E2E_NOW: "2026-11-05 21:55:00"
+      E2E_SCENARIO: night
+    command: *serve
+
+  # 送信数の上限に達した状態（送信済みの履歴200件）。送り方は line だが、トークンが無く外にもつながらない
+  app-limit:
+    <<: *app
+    environment:
+      <<: *env
+      DB_DATABASE: /var/www/html/e2e/.runtime/limit.sqlite
+      LINE_DRIVER: line
+      LINE_MONTHLY_LIMIT: "200"
+      E2E_NOW: "2026-11-05 10:00:00"
+      E2E_SCENARIO: limit
+    command: *serve
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.64.1-noble
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    networks: [e2e]
+    environment:
+      CI: "1"
+    command: npx playwright test -c e2e/playwright.config.js
+    depends_on:
+      app-day: { condition: service_healthy }
+      app-night: { condition: service_healthy }
+      app-limit: { condition: service_healthy }
+
+networks:
+  e2e:
+    internal: true

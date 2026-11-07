@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#EEF1F2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#151B20" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="いろどり手帳">
+  <title>いろどり手帳</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Pinyon+Script&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <div class="brand-row">
+      <div class="brand" aria-label="いろどり手帳">
+        <span class="brand-script" aria-hidden="true">Daily</span>
+        <span class="brand-main">いろどり手帳</span>
+      </div>
+      <div class="datebox" aria-label="今日">
+        <div class="datebox-row"><span class="datebox-k">Date :</span><span id="todayDate"></span></div>
+        <div class="datebox-row"><span class="datebox-k">Day :</span><span class="dots" id="todayDots"></span></div>
+      </div>
+    </div>
+    <div class="rule" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <button class="icon-btn" id="prevBtn" aria-label="前へ">‹</button>
+      <h1 id="periodLabel"></h1>
+      <button class="icon-btn" id="nextBtn" aria-label="次へ">›</button>
+      <button class="pill" id="todayBtn">今日</button>
+      <button class="icon-btn" id="settingsBtn" aria-label="設定">⚙︎</button>
+    </header>
+
+    <nav class="viewtabs" role="tablist" aria-label="表示切り替え">
+      <button role="tab" data-view="month">月</button>
+      <button role="tab" data-view="week">週</button>
+      <button role="tab" data-view="day">日</button>
+    </nav>
+
+    <div class="legend" id="legend" aria-label="凡例"></div>
+
+    <main id="view"></main>
+  </div>
+
+  <div class="fabs">
+    <button class="fab-sub" id="importBtn"><span aria-hidden="true">📷</span>手帳から</button>
+    <button class="fab" id="addBtn" aria-label="予定を追加">＋</button>
+  </div>
+
+  <div class="sheet-bd" id="sheet" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" id="sheetBody"></div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

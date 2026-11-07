@@ -1,0 +1,13 @@
+# いろどり手帳：毎日 3:30（日本時間）に MySQL をバックアップする
+# 置き場所：/etc/systemd/system/irodori-backup.timer → sudo systemctl enable --now irodori-backup.timer
+# Persistent=true：サーバーが止まっていて動けなかった日は、次に起動したときに動く
+[Unit]
+Description=Daily irodori-techo MySQL backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Tokyo
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

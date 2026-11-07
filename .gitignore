@@ -1,0 +1,57 @@
+# OS / エディタ
+.DS_Store
+.vscode/
+.idea/
+
+# 秘密情報（LINE・Google連携を追加したとき用）
+.env
+.env.*
+!.env.example
+# 本番用の見本（秘密の値は空欄）。実際の .env・.env.nginx は対象外のまま
+!.env.production.example
+!.env.nginx.example
+
+# 依存・生成物（将来サーバーを追加したとき用）
+node_modules/
+dist/
+.vercel/
+
+# Claude Code のローカル設定
+.claude/settings.local.json
+
+# Laravel
+*.log
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+Thumbs.db
+
+# デザイン確認用デモの書き出し先（php artisan demo:export）
+/irodori-techo-demo/
+/irodori-techo-demo-v2/
+
+# ブラウザテスト（Playwright）の使い捨て DB・ログイン情報・結果
+/e2e/.runtime/
+
+# テスト用 MySQL（tests/mysql/run.sh）が作る .env
+/tests/mysql/.runtime/

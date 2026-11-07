@@ -1,0 +1,376 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+/* ===== 色・文字（Tailwind のテーマ） =====
+   デザインの元イメージ：紙の手帳「Daily Journal Planner」
+   紙のような明るいグレー ＋ くすんだブルーグレーの枠 ＋ 明朝体の見出し ＋ 点線の罫線 ＋ 塗りつぶした丸
+   例）bg-paper / bg-panel / text-muted / border-dash / bg-accent
+*/
+@theme {
+    --font-serif: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+    --font-sans: 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
+    --font-script: 'Pinyon Script', cursive;
+
+    --color-paper: #eef1f2;       /* 紙 */
+    --color-panel: #d5e0e6;       /* パネル（くすみブルー） */
+    --color-panel-2: #e8eef1;     /* パネルの中の入力欄など */
+    --color-ink: #2c4250;
+    --color-muted: #6a808e;
+    --color-rule: #8cabbb;        /* 見出しの下線・枠線 */
+    --color-rule-soft: #b7cad4;
+    --color-dash: #9db6c3;        /* 点線の罫線 */
+    --color-accent: #4a7d9a;      /* 丸ボタン・強調 */
+    --color-accent-ink: #3a6680;
+    --color-sun: #b8656b;
+    --color-sat: #3e679a;
+    --color-line: #06c755;        /* LINE の緑 */
+    --color-line-chat: #9bb5da;   /* LINE のトーク画面の背景 */
+}
+
+/* ダークモード（同じ雰囲気の紺系） */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-paper: #151b20;
+        --color-panel: #22313b;
+        --color-panel-2: #1b262e;
+        --color-ink: #dce6ec;
+        --color-muted: #8fa4b1;
+        --color-rule: #557587;
+        --color-rule-soft: #34495a;
+        --color-dash: #3f5868;
+        --color-accent: #7aaecb;
+        --color-accent-ink: #a5cbe0;
+        --color-sun: #e08d92;
+        --color-sat: #86aee6;
+        --color-line-chat: #2b3647;
+        color-scheme: dark;
+    }
+}
+
+@layer base {
+    :root {
+        --hour: 48px; /* タイムライン1時間ぶんの高さ */
+        color-scheme: light;
+    }
+    body {
+        @apply bg-paper font-serif text-ink;
+        font-size: 15px;
+        -webkit-tap-highlight-color: transparent;
+    }
+    :focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
+    }
+    button, [type='submit'] {
+        cursor: pointer;
+    }
+}
+
+@layer components {
+    /* ----- タイトルと今日の欄 ----- */
+    .brand-script {
+        @apply pointer-events-none absolute font-script leading-none text-accent;
+        left: -4px;
+        top: -6px;
+        font-size: 46px;
+    }
+    .day-dot {
+        @apply grid size-[19px] place-items-center rounded-full font-sans text-[10px] text-white not-italic;
+        background: color-mix(in srgb, var(--color-accent) 45%, transparent);
+    }
+    .day-dot.on {
+        @apply bg-accent font-bold;
+        box-shadow: 0 0 0 2px var(--color-paper), 0 0 0 3px var(--color-accent);
+    }
+    .rule {
+        @apply mx-4 mb-1.5 h-[5px] border-y-[1.5px] border-dashed border-accent opacity-70;
+    }
+
+    /* ----- パネルと見出し ----- */
+    .panel {
+        @apply rounded-[3px] bg-panel;
+    }
+    .panel-title {
+        @apply mx-auto w-fit border-b-[1.5px] border-rule px-[18px] pb-[5px] text-center text-[15px] font-medium tracking-[.12em];
+    }
+
+    /* ----- ボタン ----- */
+    .btn {
+        @apply block w-full rounded-[3px] px-4 py-3 text-center text-[15px] font-medium tracking-[.08em] text-ink no-underline;
+    }
+    .btn-primary { @apply bg-accent text-white; }
+    .btn-ghost { @apply bg-panel; }
+    .btn-danger { @apply text-sun; }
+    .btn-small { @apply w-auto px-3 py-[7px] text-[13px]; }
+    .btn:disabled { @apply cursor-default opacity-45; }
+    .icon-btn {
+        @apply grid size-10 shrink-0 place-items-center rounded-full text-[22px] text-accent-ink hover:bg-panel;
+    }
+    .pill {
+        @apply shrink-0 rounded-full bg-accent px-3 py-[5px] text-xs tracking-[.1em] text-white;
+    }
+    .mini-badge {
+        @apply rounded bg-line px-1.5 py-0.5 font-sans text-[10px] font-bold text-white;
+    }
+
+    /* ----- 入力欄 ----- */
+    .field {
+        @apply flex min-w-0 flex-1 flex-col gap-1 text-xs tracking-[.05em] text-muted;
+    }
+    .input {
+        @apply w-full min-w-0 rounded-[3px] border border-transparent bg-panel px-2.5 py-[9px] text-base tracking-normal text-ink;
+    }
+    .input:focus { @apply border-accent outline-none; }
+    .title-input {
+        @apply w-full border-0 border-b-[1.5px] border-dashed border-rule bg-transparent px-0.5 py-2 text-[19px] font-medium outline-none;
+    }
+    .title-input:focus { @apply border-solid border-accent; }
+    .check {
+        @apply flex items-center gap-2.5 text-sm;
+    }
+    .check input, .switch input {
+        @apply m-0 size-5 shrink-0 accent-accent;
+    }
+    .switch {
+        @apply flex items-center gap-1.5 whitespace-nowrap rounded-[3px] bg-panel px-3 py-2.5 text-sm;
+    }
+    .hint {
+        @apply m-0 text-xs leading-[1.8] text-muted;
+    }
+    .error {
+        @apply m-0 text-xs text-sun;
+    }
+
+    /* カテゴリの色を選ぶ丸いボタン */
+    .chip { @apply relative; }
+    .chip input { @apply absolute inset-0 m-0 opacity-0; }
+    .chip span {
+        @apply inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-rule-soft bg-panel-2 px-3 py-1.5 text-[13px];
+    }
+    .chip span::before {
+        content: '';
+        @apply size-3 rounded-full bg-(--c);
+    }
+    .chip input:checked + span {
+        @apply border-(--c) font-bold;
+        background: color-mix(in srgb, var(--c) 18%, var(--color-paper));
+    }
+    .chip input:focus-visible + span { outline: 2px solid var(--color-accent); }
+
+    /* ----- 月表示 ----- */
+    .wk-dot {
+        @apply grid size-6 place-items-center rounded-full bg-accent font-sans text-[11px] text-white;
+    }
+    .wk-dot.w0 { @apply bg-sun; }
+    .wk-dot.w6 { @apply bg-sat; }
+    .day-cell {
+        @apply flex min-h-16 min-w-0 flex-col items-center gap-1 border-t border-dashed border-dash px-[3px] py-[5px] sm:min-h-21;
+    }
+    .day-cell .num {
+        @apply size-6 rounded-full text-center text-[13px] leading-6 tabular-nums;
+    }
+    .day-cell.w0 .num { @apply text-sun; }
+    .day-cell.w6 .num { @apply text-sat; }
+    .day-cell.other { @apply opacity-40; }
+    .day-cell.today .num { @apply bg-accent font-bold text-white; }
+    .day-cell.sel { @apply bg-panel-2; }
+    .bar {
+        @apply block h-1.5 rounded-[3px] bg-(--c) sm:h-2;
+    }
+    .bar.done { @apply opacity-30; }
+
+    /* 予定一覧（点線の罫線 ＋ 左にカテゴリ色の丸）
+       丸は完了チェックのボタン（押しやすいように 40px 四方）。行の残りは編集画面へのリンク */
+    .task-row {
+        @apply flex w-full items-center gap-0.5 border-b border-dashed border-dash text-left;
+    }
+    .task-link {
+        @apply flex min-w-0 flex-1 items-center gap-2.5 py-[11px] pr-0.5 text-inherit no-underline;
+    }
+    .task-check {
+        @apply -ml-2 grid size-10 shrink-0 place-items-center rounded-full;
+    }
+    .task-check span {
+        @apply grid size-[18px] place-items-center rounded-full border-2 border-(--c) font-sans text-[11px] leading-none font-bold text-transparent transition-colors;
+        background: color-mix(in srgb, var(--c) 25%, transparent);
+    }
+    .task-check:hover span { background: color-mix(in srgb, var(--c) 45%, transparent); }
+    .task-check[aria-pressed='true'] span { @apply bg-(--c) text-white; }
+    .task-check:disabled { @apply cursor-wait opacity-60; }
+    .task-row.done .title { @apply text-muted line-through; }
+    .task-row.done .task-link > span:first-child { @apply opacity-60; }
+
+    /* 優先度「高」の印（小さな赤みの丸い札） */
+    .prio-high {
+        @apply inline-grid h-[18px] shrink-0 place-items-center rounded-full border border-sun px-1.5 font-sans text-[10px] leading-none font-bold text-sun;
+        background: color-mix(in srgb, var(--color-sun) 10%, transparent);
+    }
+    .task-row.done .prio-high { @apply opacity-50; }
+
+    /* サブタスク：行の右の「☑ 2/3」と、開いたときのチェック項目 */
+    .subtask-toggle {
+        @apply flex h-8 shrink-0 items-center gap-0.5 rounded-full bg-panel-2 px-2 font-sans text-[11px] text-muted tabular-nums;
+    }
+    .subtask-toggle[aria-expanded='true'] { @apply bg-accent text-white; }
+    .subtask-list {
+        @apply ml-8 flex flex-col border-b border-dashed border-dash pb-2;
+    }
+    .subtask-item {
+        @apply flex items-center gap-1 text-[13px];
+    }
+    .subtask-item.done > span:last-child { @apply text-muted line-through; }
+    .subtask-check {
+        @apply -my-1 grid size-9 shrink-0 place-items-center;
+    }
+    .subtask-check span {
+        @apply grid size-[18px] place-items-center rounded-[3px] border-[1.5px] border-rule bg-panel-2 font-sans text-xs leading-none font-bold text-transparent;
+    }
+    .subtask-check[aria-pressed='true'] span { @apply border-accent bg-accent text-white; }
+    .subtask-ask {
+        @apply mt-1.5 flex flex-col gap-2 rounded-[3px] border border-accent bg-panel-2 p-2.5;
+    }
+
+    /* 今日の達成状況の進捗バー */
+    .progress-bar {
+        @apply h-1.5 overflow-hidden rounded-full bg-panel-2;
+    }
+    .progress-bar > i {
+        @apply block h-full rounded-full bg-accent transition-[width] duration-300;
+    }
+
+    /* 予定のフォーム：チェック項目の編集 */
+    .subtask-edit {
+        @apply flex items-center gap-1;
+    }
+    .subtask-edit .input { @apply bg-panel-2 px-2 py-1.5 text-sm; }
+
+    /* 一覧の小見出し（今日やること・期限切れ・一覧表示の日付） */
+    .list-head {
+        @apply flex items-center gap-2 border-b-[1.5px] border-rule pt-3 pb-1 text-[13px] font-medium tracking-[.08em];
+    }
+
+    /* 月表示で予定名を出すとき（1日3件まで） */
+    .mcell-title {
+        @apply block w-full truncate rounded-[3px] bg-(--c) px-1 text-left font-sans text-[10px] leading-[15px] text-white;
+    }
+    .mcell-title.done { @apply line-through opacity-40; }
+    .badge {
+        @apply whitespace-nowrap rounded-full bg-panel-2 px-1.5 py-0.5 font-sans text-[10px] text-muted;
+    }
+
+    /* ----- 週・日タイムライン ----- */
+    .tl-row {
+        display: grid;
+        grid-template-columns: 44px repeat(var(--n), minmax(0, 1fr));
+    }
+    .tl-dh {
+        @apply flex flex-col items-center gap-0.5 py-1.5 text-[11px] text-muted;
+    }
+    .tl-dh b {
+        @apply size-[30px] rounded-full text-[15px] leading-[30px] font-medium text-ink tabular-nums;
+    }
+    .tl-dh.w0, .tl-dh.w0 b { @apply text-sun; }
+    .tl-dh.w6, .tl-dh.w6 b { @apply text-sat; }
+    .tl-dh.today b { @apply bg-accent text-white; }
+    .is-day .tl-dh { @apply flex-row justify-start gap-2 pl-2; }
+    .tl-col {
+        @apply relative cursor-cell border-l border-dashed border-dash;
+        background-image: linear-gradient(to bottom, var(--color-rule-soft) 1px, transparent 1px);
+        background-size: 100% var(--hour);
+    }
+    .chip-ev {
+        @apply block truncate rounded-[3px] bg-(--c) px-1.5 py-[3px] text-left font-sans text-[11px] text-white;
+    }
+    .ev {
+        @apply absolute z-[1] flex flex-col overflow-hidden rounded bg-(--c) px-1.5 py-[3px] text-left font-sans text-xs leading-tight text-white;
+        box-shadow: 0 0 0 1px var(--color-panel);
+    }
+    .ev b { @apply truncate font-bold; }
+    .ev span { @apply whitespace-nowrap text-[10px] opacity-90; }
+    .is-week .ev { @apply rounded-[3px] px-[3px] py-0.5 text-[10px]; }
+    .is-week .ev span { @apply hidden; }
+    .chip-ev.done, .ev.done { @apply opacity-45; }
+
+    /* カテゴリの色が明るいとき（淡いピンク・淡い黄色など）は、白ではなく紺色の文字にする
+       色の明るさ（OKLCH の l）が 0.78 より上なら紺、それ以下なら白。対応していないブラウザは白のまま */
+    @supports (color: oklch(from red l c h)) {
+        .mcell-title, .chip-ev, .ev, .task-check[aria-pressed='true'] span {
+            color: oklch(from var(--c) clamp(0.34, (0.78 - l) * 999, 1) clamp(0, (l - 0.78) * 999, 0.05) 240);
+        }
+    }
+    .now-line {
+        @apply pointer-events-none absolute inset-x-0 z-[3] h-0.5 bg-sun;
+    }
+    .now-line::before {
+        content: '';
+        @apply absolute -top-1 -left-[5px] size-2.5 rounded-full bg-sun;
+    }
+
+    /* ----- 手帳から取り込み ----- */
+    .step-num {
+        @apply mr-2 inline-grid size-[22px] shrink-0 place-items-center rounded-full bg-accent font-sans text-xs text-white;
+    }
+    .cand {
+        @apply flex flex-col gap-2 rounded-[3px] border-l-[5px] border-(--c) bg-panel p-3;
+    }
+    .cand .input { @apply bg-panel-2 p-2; }
+    .cand.off { @apply opacity-45; }
+
+    /* ----- LINE 通知の見本 ----- */
+    .bubble {
+        @apply flex max-w-[92%] flex-col gap-0.5 rounded-[4px_16px_16px_16px] bg-white px-3 py-[9px] text-[13px] leading-normal text-[#222];
+    }
+
+    /* ----- LINE連携・通知履歴 ----- */
+    .status-tag {
+        @apply inline-block whitespace-nowrap rounded-full bg-panel-2 px-2 py-px align-middle font-sans text-[11px] font-medium text-muted;
+    }
+    .status-tag.ok {
+        color: color-mix(in srgb, var(--color-line) 70%, var(--color-ink));
+        background: color-mix(in srgb, var(--color-line) 14%, var(--color-paper));
+    }
+    .status-tag.ng {
+        @apply text-sun;
+        background: color-mix(in srgb, var(--color-sun) 14%, var(--color-paper));
+    }
+    .guide-steps {
+        @apply m-0 flex list-none flex-col gap-3 p-0;
+        counter-reset: guide;
+    }
+    .guide-steps > li {
+        @apply relative flex flex-col gap-1 pl-9 text-sm;
+        counter-increment: guide;
+    }
+    .guide-steps > li::before {
+        content: counter(guide);
+        @apply absolute top-0 left-0 grid size-[24px] place-items-center rounded-full bg-accent font-sans text-xs text-white;
+    }
+    .guide-steps p {
+        @apply m-0 text-[13px] leading-[1.8] text-muted;
+    }
+    .guide-steps a { @apply text-accent-ink; }
+
+    /* ----- お知らせ ----- */
+    #toast {
+        @apply pointer-events-none fixed left-1/2 z-[60] w-max max-w-[calc(100%-32px)] rounded-[3px] bg-accent-ink px-4 py-2.5 text-center text-[13px] leading-relaxed text-white opacity-0 transition duration-300;
+        bottom: calc(92px + env(safe-area-inset-bottom));
+        transform: translate(-50%, 16px);
+    }
+    #toast.show {
+        @apply opacity-100;
+        transform: translate(-50%, 0);
+    }
+}
+
+@media (max-width: 380px) {
+    .brand-main { font-size: 22px !important; }
+    .brand-script { font-size: 40px; }
+}
+@media (min-width: 640px) {
+    .brand-script { font-size: 56px; top: -12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #toast, .progress-bar > i { transition: none; }
+}
